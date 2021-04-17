@@ -1,13 +1,12 @@
-# Dumu-cloud （B站弹幕云）
-使用R shiny来可视化B站视频弹幕。支持词云，直方图，折线图和主题分析。
-A R shiny app to visualize the Danmu in Bilibili
+# Introduction
+The app visualizes the articles from NewYork Times according to key word and year
 
-![程序截图](images/img01.png)
+![ScreenShot](images/img01.png)
 
-# 功能:
-1. 根据网址自动抓取视频弹幕并画出云（支持多个网址）
+# How to use
+
+1. Enter any key word, for example "China"
+2. Enter the year with the format "YYYY", for example "2021"
 
 # To-do list
-1. 根据关键字搜索来抓取视频并画出词云
-2. 允许用户屏蔽【关键词】
-3. 允许用户指定B站up主来定向抓取视频
+1. Add more features such as mutliple years search, multiple keywords
