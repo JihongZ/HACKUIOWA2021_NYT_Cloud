@@ -1,13 +1,3 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-# devtools::install_github("qinwf/cidian") #用来从github上安装R包的函数，“qinwf”应该是cidian的作者
-
 library(shiny)
 library(shinyjs)
 # library(cidian)
@@ -46,13 +36,15 @@ ui <- fluidPage(
             textInput("keyword_year","Year:", value = "2021"),
             actionButton("sure", "Generate Word Cloud"),
             
+            # textOutput("working_process")
+            
+            
         ),
         
         
 
         # Show a plot of the generated word cloud
         mainPanel(
-            htmlOutput("caption", container = div),
             wordcloud2Output('wordcloud'),
             h5("Author: Jihong Zhang", align = "right"),
             h5("HACKUIOWA 2021", align = "right")
@@ -62,9 +54,12 @@ ui <- fluidPage(
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
-
+      
+  
       observeEvent(input$sure, {
             
+        
+        
         ## get data for search API
         getNYT <- function(term, year) {
           begindate = paste0(year, "0101")
@@ -74,27 +69,8 @@ server <- function(input, output) {
                             "&facet_filter=true&api-key=", NYTIMES_KEY, sep="")
           
           initialQuery <- fromJSON(baseurl, flatten = T)
-          maxPages <- round((initialQuery$response$meta$hits[1] / 10)-1) 
           
-          #try with the max page limit at 10
-          maxPages = ifelse(maxPages >= 20, 10, maxPages)
           
-          pages <- list()
-          for(i in 0:maxPages){
-            nytSearch <- fromJSON(paste0(baseurl, "&page=", i), flatten = TRUE)
-            message("Retrieving page ", i)
-            
-            temp = data.frame(id=1:nrow(nytSearch$response$docs),
-                              created_time = nytSearch$response$docs$pub_date,
-                              snippet = nytSearch$response$docs$snippet,
-                              headline = nytSearch$response$docs$headline.main)
-            
-            pages[[i+1]] <- temp 
-            Sys.sleep(5) 
-          }
-          
-          df = rbind_pages(pages)
-          return(df)
         }
         
         #preprocessing function for text
@@ -116,24 +92,45 @@ server <- function(input, output) {
           return(corpus)
         }
         
-        term.dt <- getNYT(input$keyword_text, input$keyword_year)
-        term.clean <- preprocessing(term.dt$snippet)
-        
-        term.clean.dt <- data.frame(text = sapply(term.clean, as.character), stringsAsFactors = FALSE)
-        
-        mixseg <- worker()
-        wordsC = segment(term.clean.dt$text, mixseg)
-        filter = stopwords("SMART")
-        
-        wordsC <- filter_segment(wordsC, filter)
-        
-        wordsC <- as.data.frame(table(wordsC)[order(-as.numeric(table(wordsC)))])
-        # output$caption <- renderUI({ 
-        #   title_name <- lapply(html.content, function(x) {
-        #     as.character(xml_attr(xml_find_all(x, xpath = "//h1"), "title"))}) 
-        #   # return(paste0(unlist(title_name), collapse = "\t" ))
-        #   HTML(paste0(unlist(title_name), sep = '<br/>'))
-        # })
+        withProgress(message = "Web Scraping the articles...", value = 0, {
+          initialQuery <- getNYT(input$keyword_text, input$keyword_year)
+          
+          maxPages <- round((initialQuery$response$meta$hits[1] / 10)-1) 
+          
+          #try with the max page limit at 10
+          maxPages = ifelse(maxPages >= 10, 10, maxPages)
+          
+          pages <- list()
+          for(i in 0:maxPages){
+            nytSearch <- fromJSON(paste0(baseurl, "&page=", i), flatten = TRUE)
+            # message("Retrieving page ", i)
+            incProgress(1/maxPages, detail = paste("Retrieving page", i))
+            
+            temp = data.frame(id=1:nrow(nytSearch$response$docs),
+                              created_time = nytSearch$response$docs$pub_date,
+                              snippet = nytSearch$response$docs$snippet,
+                              headline = nytSearch$response$docs$headline.main)
+            
+            pages[[i+1]] <- temp 
+            Sys.sleep(1) 
+          }
+          
+          term.dt = rbind_pages(pages)
+          term.clean <- suppressWarnings(preprocessing(term.dt$snippet))
+          
+          
+          term.clean.dt <- data.frame(text = sapply(term.clean, as.character), stringsAsFactors = FALSE)
+          
+          mixseg <- worker()
+          wordsC = segment(term.clean.dt$text, mixseg)
+          filter = stopwords("SMART")
+          
+          wordsC <- filter_segment(wordsC, filter)
+          
+          wordsC <- as.data.frame(table(wordsC)[order(-as.numeric(table(wordsC)))])
+          
+        })
+
         
         
         
